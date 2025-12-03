@@ -3,8 +3,8 @@ import css from "./AddressAutocomplete.module.css";
 import type { AddressData, DaDataSuggestion } from "../types";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { getFormatAddressData } from "../helpers";
-import { DADATA_API_KEY, DADATA_URL } from "../constants";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
+import { env } from "../env.ts";
 
 export const AddressAutocomplete = ({
   onAddressSelect,
@@ -17,12 +17,12 @@ export const AddressAutocomplete = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const getAutocompleteData = async () => {
-    const response = await fetch(DADATA_URL, {
+    const response = await fetch(env.VITE_DADATA_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        Authorization: `Token ${DADATA_API_KEY}`,
+        Authorization: `Token ${env.VITE_DADATA_API_KEY}`,
       },
       body: JSON.stringify({
         query: query,

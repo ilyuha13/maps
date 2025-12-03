@@ -16,7 +16,8 @@ import { intersectingTest } from "../../helpers";
 import { fromLonLat } from "ol/proj";
 import type { Coordinates } from "../../types";
 import type { Coordinate } from "ol/coordinate";
-import { BASE_COORDINATES } from "../../constants";
+
+const BASE_COORDINATES = [5332194.336084221, 7685742.579137978];
 
 export const MapComponent = ({
   coordinate,
