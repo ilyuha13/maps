@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
 import css from "./AddressAutocomplete.module.css";
-import type { AddressData, DaDataSuggestion } from "../types";
+import {
+  type LoadingState,
+  type AddressData,
+  type DaDataSuggestion,
+} from "../types";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { getFormatAddressData } from "../helpers";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
@@ -15,23 +19,46 @@ export const AddressAutocomplete = ({
   const [suggestions, setSuggestions] = useState<Array<DaDataSuggestion>>([]);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const [loadingState, setLoadingState] = useState<LoadingState>({
+    status: "idle",
+  });
 
   const getAutocompleteData = async () => {
-    const response = await fetch(env.VITE_DADATA_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Token ${env.VITE_DADATA_API_KEY}`,
-      },
-      body: JSON.stringify({
-        query: query,
-        count: 10,
-      }),
-    });
-    const data = await response.json();
-    setSuggestions(data.suggestions);
-    setShowDropdown(true);
+    setLoadingState({ status: "loading" });
+    try {
+      const response = await fetch(env.VITE_DADATA_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Token ${env.VITE_DADATA_API_KEY}`,
+        },
+        body: JSON.stringify({
+          query: query,
+          count: 10,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Ошибка API: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      if (!data.suggestions) {
+        throw new Error("Некорректный формат ответа API");
+      }
+      setSuggestions(data.suggestions);
+      setShowDropdown(true);
+      setLoadingState({ status: "success", data: undefined });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Неизвестная ошибка";
+      setLoadingState({ status: "error", error: errorMessage });
+      setSuggestions([]);
+      setShowDropdown(false);
+    }
   };
 
   useClickOutside(wrapperRef, () => setShowDropdown(false));
@@ -41,18 +68,21 @@ export const AddressAutocomplete = ({
   );
 
   const inputHandleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(event.target.value);
+    const value = event.target.value;
+    setQuery(value);
 
-    try {
-      debouncedGetAutocompleteData();
-    } catch (error) {
-      console.error("Error fetching autocomplete data:", error);
+    if (!value.trim()) {
+      setLoadingState({ status: "idle" });
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
     }
+
+    debouncedGetAutocompleteData();
   };
 
   const handleSelectAddress = (suggestion: DaDataSuggestion) => {
     setQuery(suggestion.value);
-    setShowDropdown(false);
     setShowDropdown(false);
     const addressData = getFormatAddressData(suggestion);
     setSuggestions([]);
@@ -78,6 +108,15 @@ export const AddressAutocomplete = ({
           type="text"
           placeholder="Начните вводить адрес..."
         />
+        {loadingState.status === "loading" && (
+          <div className={css.loadingIndicator}>
+            <span className={css.spinner}></span>
+          </div>
+        )}
+
+        {loadingState.status === "error" && (
+          <div className={css.errorMessage}>⚠️ {loadingState.error}</div>
+        )}
         {query && (
           <button
             onClick={handleClear}
