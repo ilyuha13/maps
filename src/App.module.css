@@ -1,0 +1,39 @@
+.checkButton {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.checkButton:hover {
+  background-color: #b1e9b3;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.checkButton:active {
+  background-color: #3d8b40;
+  transform: translateY(1px);
+}
+
+.checkButton:disabled {
+  background-color: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+}
