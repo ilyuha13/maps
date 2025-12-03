@@ -1,12 +1,27 @@
-import { useState } from "react";
-import { AddressAutocomplete } from "./components/AddressAutocomplete";
+import { useCallback, useState } from "react";
 import { MapComponent } from "./components/MapComponents/MapComponents";
 import type { Coordinates } from "./types";
 import css from "./App.module.css";
+import { useToast } from "./hooks/useToast";
+import { AddressAutocomplete } from "./components/AddressAutocomplete/AddressAutocomplete";
 
 function App() {
   const [selectedCoordinate, setSelectedCoordinate] = useState<Coordinates>();
-  const [onHandleCheckClick, setOnHandleCheckClick] = useState(false);
+  const [triggerCheck, setTriggerCheck] = useState(false);
+  const toast = useToast();
+
+  const handleCheckResult = useCallback(
+    (result: boolean | null) => {
+      if (result === null) {
+        toast.error("Нет полигона или координат");
+      } else if (result) {
+        toast.success("Точка внутри полигона");
+      } else {
+        toast.error("Точка вне полигона");
+      }
+    },
+    [toast]
+  );
   return (
     <div className={css.container}>
       <div className={css.controls}>
@@ -17,14 +32,15 @@ function App() {
         />
         <button
           className={css.checkButton}
-          onClick={() => setOnHandleCheckClick((prev) => !prev)}
+          onClick={() => setTriggerCheck(!triggerCheck)}
         >
           Проверить попадание в полигон
         </button>
       </div>
 
       <MapComponent
-        handleCheck={onHandleCheckClick}
+        trigerCheck={triggerCheck}
+        onCheckResult={handleCheckResult}
         coordinate={selectedCoordinate}
       />
     </div>

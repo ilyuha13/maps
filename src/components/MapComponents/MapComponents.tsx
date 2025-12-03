@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
@@ -7,7 +7,6 @@ import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import Draw from "ol/interaction/Draw.js";
 import { Circle, Fill, Stroke, Style } from "ol/style.js";
-import css from "./MapComponents.module.css";
 import PointerInteraction from "ol/interaction/Pointer.js";
 import { Feature } from "ol";
 import { Point, Polygon, type Geometry } from "ol/geom";
@@ -16,79 +15,67 @@ import { intersectingTest } from "../../helpers";
 import { fromLonLat } from "ol/proj";
 import type { Coordinates } from "../../types";
 import type { Coordinate } from "ol/coordinate";
+import css from "./MapComponents.module.css";
+
+// ============================================================================
+// КОНСТАНТЫ
+// ============================================================================
 
 const BASE_COORDINATES = [5332194.336084221, 7685742.579137978];
 
+// Стили для полигонов (создаются один раз, не при каждом рендере)
+const POLYGON_STYLES = {
+  normal: new Style({
+    fill: new Fill({ color: "rgba(0, 255, 0, 0.3)" }),
+    stroke: new Stroke({ color: "green", width: 1 }),
+  }),
+  error: new Style({
+    fill: new Fill({ color: "rgba(255, 0, 0, 0.1)" }),
+    stroke: new Stroke({ color: "red", width: 1 }),
+  }),
+};
+
+// ============================================================================
+// КОМПОНЕНТ
+// ============================================================================
+
 export const MapComponent = ({
   coordinate,
-  handleCheck,
+  trigerCheck,
+  onCheckResult,
 }: {
   coordinate?: Coordinates;
-  handleCheck: boolean;
+  trigerCheck: boolean;
+  onCheckResult: (result: boolean | null) => void;
 }) => {
+  // ========== Refs ==========
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<Map | null>(null);
-  const isPolygonHoveredRef = useRef(false);
-  const polygonFeatureRef = useRef<Feature<Geometry>>(null);
-  const isIntersectingRef = useRef(false);
   const vectorSourceRef = useRef<VectorSource | null>(null);
   const markerSourceRef = useRef<VectorSource | null>(null);
-  const coordinateesRef = useRef<Coordinate | null>(null);
+  const polygonFeatureRef = useRef<Feature<Geometry> | null>(null);
   const polygonDrawRef = useRef<Draw | null>(null);
+  const coordinatesRef = useRef<Coordinate | null>(null);
+  const isPolygonHoveredRef = useRef(false);
+  const isIntersectingRef = useRef(false);
+  const isFirstRender = useRef(true);
 
-  const createMarker = (coordinate: number[]) => {
-    const marker = new Feature({
-      geometry: new Point(coordinate),
-    });
-    marker.setStyle(
-      new Style({
-        image: new Circle({
-          radius: 10,
-          fill: new Fill({ color: "blue" }),
-          stroke: new Stroke({ color: "white", width: 3 }),
-        }),
-      })
-    );
-    return marker;
-  };
-
-  const normalStyle = new Style({
-    fill: new Fill({
-      color: "rgba(0, 255, 0, 0.3)",
-    }),
-    stroke: new Stroke({
-      color: "green",
-      width: 1,
-    }),
-  });
-
-  const deletingStyle = new Style({
-    fill: new Fill({
-      color: "rgba(255, 0, 0, 0.1)",
-    }),
-    stroke: new Stroke({
-      color: "red",
-      width: 1,
-    }),
-  });
-
-  useLayoutEffect(() => {
+  // ========== Инициализация карты ==========
+  useEffect(() => {
     if (!mapRef.current) return;
-    const tileLayer = new TileLayer({
-      source: new OSM(),
-    });
+
+    // --- Создание слоёв ---
+    const tileLayer = new TileLayer({ source: new OSM() });
+
     const vectorSource = new VectorSource();
     vectorSourceRef.current = vectorSource;
-    const vectorLayer = new VectorLayer({
-      source: vectorSource,
-    });
+    const vectorLayer = new VectorLayer({ source: vectorSource });
 
     const markerSource = new VectorSource();
     markerSourceRef.current = markerSource;
-    const markerLayer = new VectorLayer({
-      source: markerSource,
-    });
+    const markerLayer = new VectorLayer({ source: markerSource });
 
+    // --- Создание карты ---
     const map = new Map({
       target: mapRef.current,
       layers: [tileLayer, vectorLayer, markerLayer],
@@ -98,6 +85,9 @@ export const MapComponent = ({
       }),
     });
 
+    mapInstance.current = map;
+
+    // --- Настройка рисования полигонов ---
     const polygonDraw = new Draw({
       source: vectorSource,
       type: "Polygon",
@@ -107,29 +97,53 @@ export const MapComponent = ({
     });
     polygonDrawRef.current = polygonDraw;
 
-    map.addInteraction(polygonDraw);
+    // Interaction для проверки самопересечений во время рисования
+    const intersectionCheckInteraction = new PointerInteraction({
+      handleMoveEvent: () => {
+        const geometry = polygonFeatureRef.current?.getGeometry();
+        if (!geometry || !(geometry instanceof SimpleGeometry)) {
+          return false;
+        }
 
+        const coordinates = geometry.getCoordinates()?.[0] || [];
+        isIntersectingRef.current = intersectingTest(coordinates);
+
+        // Подсветка ошибки при самопересечении
+        polygonFeatureRef.current?.setStyle(
+          isIntersectingRef.current
+            ? POLYGON_STYLES.error
+            : POLYGON_STYLES.normal
+        );
+
+        return false;
+      },
+    });
+
+    // События рисования
     polygonDraw.on("drawstart", (event) => {
       polygonFeatureRef.current = event.feature;
-      map.addInteraction(checkInteraction);
+      map.addInteraction(intersectionCheckInteraction);
     });
 
     polygonDraw.on("drawend", () => {
       polygonDraw.setActive(false);
-      map.removeInteraction(checkInteraction);
+      map.removeInteraction(intersectionCheckInteraction);
     });
 
-    const deletePolygonFromClick = new PointerInteraction({
+    map.addInteraction(polygonDraw);
+
+    // --- Настройка удаления полигонов ---
+    const hoverInteraction = new PointerInteraction({
       handleMoveEvent: (event) => {
         const feature = vectorSourceRef.current?.getFeaturesAtCoordinate(
           event.coordinate
         )[0];
 
-        const isPolygonHovered = !!feature;
-        if (isPolygonHovered !== isPolygonHoveredRef.current) {
-          isPolygonHoveredRef.current = isPolygonHovered;
+        const isHovered = !!feature;
+        if (isHovered !== isPolygonHoveredRef.current) {
+          isPolygonHoveredRef.current = isHovered;
           polygonFeatureRef.current?.setStyle(
-            isPolygonHovered ? deletingStyle : normalStyle
+            isHovered ? POLYGON_STYLES.error : POLYGON_STYLES.normal
           );
         }
 
@@ -142,79 +156,77 @@ export const MapComponent = ({
 
       event.stopPropagation();
       vectorSourceRef.current?.removeFeature(polygonFeatureRef.current);
+      polygonFeatureRef.current = null;
       polygonDrawRef.current?.setActive(true);
     });
-    map.addInteraction(deletePolygonFromClick);
 
-    const checkInteraction = new PointerInteraction({
-      handleMoveEvent: () => {
-        const geometry = polygonFeatureRef.current?.getGeometry();
+    map.addInteraction(hoverInteraction);
 
-        let coordinates: number[][] = [];
-
-        if (geometry instanceof SimpleGeometry) {
-          coordinates = geometry.getCoordinates()?.[0];
-        }
-
-        isIntersectingRef.current = intersectingTest(coordinates);
-        if (isIntersectingRef.current) {
-          polygonFeatureRef.current?.setStyle(deletingStyle);
-        } else {
-          polygonFeatureRef.current?.setStyle(normalStyle);
-        }
-        return false;
-      },
-    });
-
-    mapInstance.current = map;
-
+    // --- Cleanup ---
     return () => {
       map.setTarget(undefined);
       map.dispose();
       mapInstance.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ========== Добавление маркера при выборе адреса ==========
   useEffect(() => {
-    if (!coordinate) return;
-    if (!coordinate.latitude || !coordinate.longitude) return;
-    if (!mapInstance.current) return;
-    if (!markerSourceRef.current) return;
+    if (!coordinate?.latitude || !coordinate?.longitude) return;
+    if (!mapInstance.current || !markerSourceRef.current) return;
 
+    // Очистка старых маркеров
     markerSourceRef.current.clear();
 
+    // Преобразование координат
     const olCoords = fromLonLat([
       parseFloat(coordinate.longitude),
       parseFloat(coordinate.latitude),
     ]);
 
-    coordinateesRef.current = olCoords;
+    coordinatesRef.current = olCoords;
 
-    const marker = createMarker(olCoords);
+    // Создание маркера
+    const marker = new Feature({ geometry: new Point(olCoords) });
+    marker.setStyle(
+      new Style({
+        image: new Circle({
+          radius: 10,
+          fill: new Fill({ color: "blue" }),
+          stroke: new Stroke({ color: "white", width: 3 }),
+        }),
+      })
+    );
+
     markerSourceRef.current.addFeature(marker);
 
-    const view = mapInstance.current.getView();
-    view.setCenter(olCoords);
+    // Центрирование карты
+    mapInstance.current.getView().setCenter(olCoords);
   }, [coordinate]);
 
+  // ========== Проверка попадания в полигон ==========
   useEffect(() => {
-    if (!polygonFeatureRef.current) return;
-    if (!coordinateesRef.current) return;
-
-    const isInsidePolygon = (
-      coordinate: number[],
-      polygon: Polygon
-    ): boolean => {
-      return polygon.intersectsCoordinate(coordinate);
-    };
-
-    const polygonGeometry = polygonFeatureRef.current.getGeometry() as Polygon;
-
-    if (isInsidePolygon(coordinateesRef.current, polygonGeometry)) {
-      console.log("Точка внутри полигона");
+    // Пропускаем первый рендер
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }, [handleCheck]);
+
+    // Валидация данных
+    if (!polygonFeatureRef.current || !coordinatesRef.current) {
+      onCheckResult(null);
+      return;
+    }
+
+    // Проверка попадания
+    const polygonGeometry = polygonFeatureRef.current.getGeometry() as Polygon;
+    const isInside = polygonGeometry.intersectsCoordinate(
+      coordinatesRef.current
+    );
+
+    onCheckResult(isInside);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigerCheck]);
 
   return <div ref={mapRef} className={css.map} />;
 };

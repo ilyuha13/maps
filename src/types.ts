@@ -119,3 +119,12 @@ export type LoadingState<T = void> =
   | { status: "loading" }
   | { status: "success"; data: T }
   | { status: "error"; error: string };
+
+export type ToastType = "success" | "error" | "info";
+
+export interface Toast {
+  id: string;
+  type: ToastType;
+  message: string;
+  duration?: number; // в миллисекундах
+}
