@@ -4,11 +4,11 @@ import {
   type LoadingState,
   type AddressData,
   type DaDataSuggestion,
-} from "../types";
-import { useClickOutside } from "../hooks/useClickOutside";
-import { getFormatAddressData } from "../helpers";
-import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
-import { env } from "../env.ts";
+} from "../../types";
+import { useClickOutside } from "../../hooks/useClickOutside";
+import { getFormatAddressData } from "../../helpers";
+import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
+import { env } from "../../env.ts";
 
 export const AddressAutocomplete = ({
   onAddressSelect,
