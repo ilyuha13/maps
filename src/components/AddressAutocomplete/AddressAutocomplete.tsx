@@ -12,8 +12,10 @@ import { env } from "../../env.ts";
 
 export const AddressAutocomplete = ({
   onAddressSelect,
+  className,
 }: {
   onAddressSelect: (address: AddressData | null) => void;
+  className: string;
 }) => {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Array<DaDataSuggestion>>([]);
@@ -102,7 +104,7 @@ export const AddressAutocomplete = ({
   };
 
   return (
-    <div className={css.addressAutocomplete}>
+    <div className={`${css.addressAutocomplete} ${className || ""}`}>
       <div ref={wrapperRef} className={css.inputWrapper}>
         <input
           value={query}

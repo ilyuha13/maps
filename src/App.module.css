@@ -9,6 +9,7 @@
   cursor: pointer;
   transition: all 0.2s;
   outline: none;
+  order: 2;
 }
 
 .checkButton:hover {
@@ -37,4 +38,28 @@
 .controls {
   display: flex;
   gap: 10px;
+}
+
+.addressAutocomplete {
+  order: 1;
+}
+
+@media (max-width: 480px) {
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .checkButton {
+    order: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .addressAutocomplete {
+    order: 2;
+  }
 }
