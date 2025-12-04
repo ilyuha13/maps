@@ -17,13 +17,8 @@ import type { Coordinates } from "../../types";
 import type { Coordinate } from "ol/coordinate";
 import css from "./MapComponents.module.css";
 
-// ============================================================================
-// КОНСТАНТЫ
-// ============================================================================
-
 const BASE_COORDINATES = [5332194.336084221, 7685742.579137978];
 
-// Стили для полигонов (создаются один раз, не при каждом рендере)
 const POLYGON_STYLES = {
   normal: new Style({
     fill: new Fill({ color: "rgba(0, 255, 0, 0.3)" }),
@@ -35,10 +30,6 @@ const POLYGON_STYLES = {
   }),
 };
 
-// ============================================================================
-// КОМПОНЕНТ
-// ============================================================================
-
 export const MapComponent = ({
   coordinate,
   trigerCheck,
@@ -48,7 +39,6 @@ export const MapComponent = ({
   trigerCheck: boolean;
   onCheckResult: (result: boolean | null) => void;
 }) => {
-  // ========== Refs ==========
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<Map | null>(null);
   const vectorSourceRef = useRef<VectorSource | null>(null);
@@ -60,11 +50,9 @@ export const MapComponent = ({
   const isIntersectingRef = useRef(false);
   const isFirstRender = useRef(true);
 
-  // ========== Инициализация карты ==========
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // --- Создание слоёв ---
     const tileLayer = new TileLayer({ source: new OSM() });
 
     const vectorSource = new VectorSource();
@@ -75,7 +63,6 @@ export const MapComponent = ({
     markerSourceRef.current = markerSource;
     const markerLayer = new VectorLayer({ source: markerSource });
 
-    // --- Создание карты ---
     const map = new Map({
       target: mapRef.current,
       layers: [tileLayer, vectorLayer, markerLayer],
@@ -87,7 +74,6 @@ export const MapComponent = ({
 
     mapInstance.current = map;
 
-    // --- Настройка рисования полигонов ---
     const polygonDraw = new Draw({
       source: vectorSource,
       type: "Polygon",
@@ -97,7 +83,6 @@ export const MapComponent = ({
     });
     polygonDrawRef.current = polygonDraw;
 
-    // Interaction для проверки самопересечений во время рисования
     const intersectionCheckInteraction = new PointerInteraction({
       handleMoveEvent: () => {
         const geometry = polygonFeatureRef.current?.getGeometry();
@@ -108,7 +93,6 @@ export const MapComponent = ({
         const coordinates = geometry.getCoordinates()?.[0] || [];
         isIntersectingRef.current = intersectingTest(coordinates);
 
-        // Подсветка ошибки при самопересечении
         polygonFeatureRef.current?.setStyle(
           isIntersectingRef.current
             ? POLYGON_STYLES.error
@@ -119,7 +103,6 @@ export const MapComponent = ({
       },
     });
 
-    // События рисования
     polygonDraw.on("drawstart", (event) => {
       polygonFeatureRef.current = event.feature;
       map.addInteraction(intersectionCheckInteraction);
@@ -132,7 +115,6 @@ export const MapComponent = ({
 
     map.addInteraction(polygonDraw);
 
-    // --- Настройка удаления полигонов ---
     const hoverInteraction = new PointerInteraction({
       handleMoveEvent: (event) => {
         const feature = vectorSourceRef.current?.getFeaturesAtCoordinate(
@@ -162,7 +144,6 @@ export const MapComponent = ({
 
     map.addInteraction(hoverInteraction);
 
-    // --- Cleanup ---
     return () => {
       map.setTarget(undefined);
       map.dispose();
@@ -170,15 +151,12 @@ export const MapComponent = ({
     };
   }, []);
 
-  // ========== Добавление маркера при выборе адреса ==========
   useEffect(() => {
     if (!coordinate?.latitude || !coordinate?.longitude) return;
     if (!mapInstance.current || !markerSourceRef.current) return;
 
-    // Очистка старых маркеров
     markerSourceRef.current.clear();
 
-    // Преобразование координат
     const olCoords = fromLonLat([
       parseFloat(coordinate.longitude),
       parseFloat(coordinate.latitude),
@@ -186,7 +164,6 @@ export const MapComponent = ({
 
     coordinatesRef.current = olCoords;
 
-    // Создание маркера
     const marker = new Feature({ geometry: new Point(olCoords) });
     marker.setStyle(
       new Style({
@@ -200,25 +177,20 @@ export const MapComponent = ({
 
     markerSourceRef.current.addFeature(marker);
 
-    // Центрирование карты
     mapInstance.current.getView().setCenter(olCoords);
   }, [coordinate]);
 
-  // ========== Проверка попадания в полигон ==========
   useEffect(() => {
-    // Пропускаем первый рендер
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
 
-    // Валидация данных
     if (!polygonFeatureRef.current || !coordinatesRef.current) {
       onCheckResult(null);
       return;
     }
 
-    // Проверка попадания
     const polygonGeometry = polygonFeatureRef.current.getGeometry() as Polygon;
     const isInside = polygonGeometry.intersectsCoordinate(
       coordinatesRef.current
