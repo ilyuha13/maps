@@ -152,10 +152,11 @@ export const MapComponent = ({
   }, []);
 
   useEffect(() => {
-    if (!coordinate?.latitude || !coordinate?.longitude) return;
-    if (!mapInstance.current || !markerSourceRef.current) return;
+    console.log("hi");
 
+    if (!mapInstance.current || !markerSourceRef.current) return;
     markerSourceRef.current.clear();
+    if (!coordinate?.latitude || !coordinate?.longitude) return;
 
     const olCoords = fromLonLat([
       parseFloat(coordinate.longitude),

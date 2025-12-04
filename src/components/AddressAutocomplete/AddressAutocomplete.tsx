@@ -13,7 +13,7 @@ import { env } from "../../env.ts";
 export const AddressAutocomplete = ({
   onAddressSelect,
 }: {
-  onAddressSelect: (address: AddressData) => void;
+  onAddressSelect: (address: AddressData | null) => void;
 }) => {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Array<DaDataSuggestion>>([]);
@@ -96,6 +96,9 @@ export const AddressAutocomplete = ({
     setQuery("");
     setSuggestions([]);
     setShowDropdown(false);
+    if (onAddressSelect) {
+      onAddressSelect(null);
+    }
   };
 
   return (

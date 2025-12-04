@@ -27,7 +27,7 @@ function App() {
       <div className={css.controls}>
         <AddressAutocomplete
           onAddressSelect={(data) => {
-            setSelectedCoordinate(data.coordinates);
+            setSelectedCoordinate(data?.coordinates);
           }}
         />
         <button
