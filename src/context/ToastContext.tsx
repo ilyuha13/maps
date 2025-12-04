@@ -1,11 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import {
-  createContext,
-  useCallback,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useState, type ReactNode } from "react";
 import type { Toast, ToastType } from "../types";
 
 interface ToastContextType {
@@ -45,14 +39,11 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     [removeToast]
   );
 
-  const value = useMemo(
-    () => ({
-      toasts,
-      addToast,
-      removeToast,
-    }),
-    [toasts, addToast, removeToast]
-  );
+  const value = {
+    toasts,
+    addToast,
+    removeToast,
+  };
 
   return (
     <ToastContext.Provider value={value}>{children}</ToastContext.Provider>
